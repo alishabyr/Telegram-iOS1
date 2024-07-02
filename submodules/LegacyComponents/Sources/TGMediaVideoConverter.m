@@ -131,7 +131,7 @@
                 
                 CGSize dimensions = [avAsset tracksWithMediaType:AVMediaTypeVideo].firstObject.naturalSize;
                 TGMediaVideoConversionPreset preset = adjustments.sendAsGif ? TGMediaVideoConversionPresetAnimation : [self presetFromAdjustments:adjustments];
-                if (!CGSizeEqualToSize(dimensions, CGSizeZero) && preset != TGMediaVideoConversionPresetAnimation && preset != TGMediaVideoConversionPresetVideoMessage && preset != TGMediaVideoConversionPresetProfile && preset != TGMediaVideoConversionPresetProfileLow && preset != TGMediaVideoConversionPresetProfileHigh && preset != TGMediaVideoConversionPresetProfileVeryHigh && preset != TGMediaVideoConversionPresetPassthrough)
+                if (!CGSizeEqualToSize(dimensions, CGSizeZero) && preset != TGMediaVideoConversionPresetAnimation && preset != TGMediaVideoConversionPresetVideoMessage && preset != TGMediaVideoConversionPresetVideoMessageHD && preset != TGMediaVideoConversionPresetProfile && preset != TGMediaVideoConversionPresetProfileLow && preset != TGMediaVideoConversionPresetProfileHigh && preset != TGMediaVideoConversionPresetProfileVeryHigh && preset != TGMediaVideoConversionPresetPassthrough)
                 {
                     TGMediaVideoConversionPreset bestPreset = [self bestAvailablePresetForDimensions:dimensions];
                     if (preset > bestPreset)
@@ -1284,6 +1284,9 @@ static CGFloat progressOfSampleBufferInTimeRange(CMSampleBufferRef sampleBuffer,
         case TGMediaVideoConversionPresetVideoMessage:
             return (CGSize){ 384.0f, 384.0f };
         
+        case TGMediaVideoConversionPresetVideoMessageHD:
+            return (CGSize){ 384.0f, 384.0f };
+        
         case TGMediaVideoConversionPresetProfileLow:
             return (CGSize){ 720.0f, 720.0f };
             
@@ -1422,6 +1425,9 @@ static CGFloat progressOfSampleBufferInTimeRange(CMSampleBufferRef sampleBuffer,
             
         case TGMediaVideoConversionPresetVideoMessage:
             return 1000;
+
+        case TGMediaVideoConversionPresetVideoMessageHD:
+            return 2000;
             
         case TGMediaVideoConversionPresetProfile:
             return 1500;
@@ -1461,6 +1467,9 @@ static CGFloat progressOfSampleBufferInTimeRange(CMSampleBufferRef sampleBuffer,
             
         case TGMediaVideoConversionPresetVideoMessage:
             return 64;
+
+        case TGMediaVideoConversionPresetVideoMessageHD:
+            return 0;
             
         case TGMediaVideoConversionPresetAnimation:
         case TGMediaVideoConversionPresetProfile:

@@ -483,7 +483,7 @@
                     }
                     
                     id<TGMediaEditAdjustments> adjustments = [strongSelf->_editingContext adjustmentsForItem:asset];
-                    if ([adjustments isKindOfClass:[TGMediaVideoEditAdjustments class]] && ((TGMediaVideoEditAdjustments *)adjustments).sendAsGif)
+                    if ([adjustments isKindOfClass:[TGMediaVideoEditAdjustments class]] && (((TGMediaVideoEditAdjustments *)adjustments).sendAsGif || ((TGMediaVideoEditAdjustments *)adjustments).sendAsTelescope))
                     {
                         onlyGroupableMedia = false;
                         break;
@@ -967,7 +967,7 @@
             id<TGMediaEditAdjustments> adjustments = [editingContext adjustmentsForItem:asset];
             if ([adjustments isKindOfClass:[TGVideoEditAdjustments class]]) {
                 TGVideoEditAdjustments *videoAdjustments = (TGVideoEditAdjustments *)adjustments;
-                if (videoAdjustments.sendAsGif) {
+                if (videoAdjustments.sendAsGif || videoAdjustments.sendAsTelescope) {
                     grouping = false;
                 }
             }
@@ -1503,7 +1503,7 @@
             id<TGMediaEditAdjustments> adjustments = [editingContext adjustmentsForItem:asset];
             if ([adjustments isKindOfClass:[TGVideoEditAdjustments class]]) {
                 TGVideoEditAdjustments *videoAdjustments = (TGVideoEditAdjustments *)adjustments;
-                if (videoAdjustments.sendAsGif) {
+                if (videoAdjustments.sendAsGif || videoAdjustments.sendAsTelescope) {
                     grouping = false;
                 }
             }
