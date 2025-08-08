@@ -87,6 +87,7 @@
 "Settings.SendWithReturnKey" = "Send with \"return\" key";
 "Settings.HidePhoneInSettingsUI" = "Hide Phone in Settings";
 "Settings.HidePhoneInSettingsUI.Notice" = "This will only hide your phone number from the settings interface. To hide it from others, go to Privacy and Security.";
+"Settings.ShowSaveChatButton" = "Show Save Chat button";
 
 "PasscodeSettings.AutoLock.InFiveSeconds" = "If away for 5 seconds";
 

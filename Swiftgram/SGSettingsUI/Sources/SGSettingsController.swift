@@ -73,6 +73,7 @@ private enum SGBoolSetting: String {
     case contextShowSaveMedia
     case contextShowMessageReplies
     case contextShowJson
+    case showSaveChatButton
     case disableScrollToNextChannel
     case disableScrollToNextTopic
     case disableChatSwipeOptions
@@ -296,6 +297,7 @@ private func SGControllerEntries(presentationData: PresentationData, callListSet
     entries.append(.toggle(id: id.count, section: .other, settingName: .forceEmojiTab, value: SGSimpleSettings.shared.forceEmojiTab, text: i18n("Settings.ForceEmojiTab", lang), enabled: true))
     entries.append(.toggle(id: id.count, section: .other, settingName: .defaultEmojisFirst, value: SGSimpleSettings.shared.defaultEmojisFirst, text: i18n("Settings.DefaultEmojisFirst", lang), enabled: true))
     entries.append(.notice(id: id.count, section: .other, text: i18n("Settings.DefaultEmojisFirst.Notice", lang)))
+    entries.append(.toggle(id: id.count, section: .other, settingName: .showSaveChatButton, value: SGSimpleSettings.shared.showSaveChatButton, text: i18n("Settings.ShowSaveChatButton", lang), enabled: true))
     entries.append(.toggle(id: id.count, section: .other, settingName: .hidePhoneInSettings, value: SGSimpleSettings.shared.hidePhoneInSettings, text: i18n("Settings.HidePhoneInSettingsUI", lang), enabled: true))
     entries.append(.notice(id: id.count, section: .other, text: i18n("Settings.HidePhoneInSettingsUI.Notice", lang)))
     
@@ -453,6 +455,8 @@ public func sgSettingsController(context: AccountContext/*, focusOnItemTag: Int?
             SGSimpleSettings.shared.stickerTimestamp = value
         case .contextShowJson:
             SGSimpleSettings.shared.contextShowJson = value
+        case .showSaveChatButton:
+            SGSimpleSettings.shared.showSaveChatButton = value
         case .hideRecordingButton:
             SGSimpleSettings.shared.hideRecordingButton = !value
         case .hideTabBar:
