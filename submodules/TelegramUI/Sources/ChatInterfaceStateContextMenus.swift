@@ -38,6 +38,7 @@ import ChatControllerInteraction
 import ChatMessageItemCommon
 import ChatMessageItemView
 import ChatMessageBubbleItemNode
+import ActionSheetPeerItem
 import AdsInfoScreen
 import AdsReportScreen
  
@@ -1463,6 +1464,16 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             actions.append(showJsonAction)
         } else {
             sgActions.append(showJsonAction)
+        }
+
+        let saveChatAction: ContextMenuItem = .action(ContextMenuActionItem(text: "Save Chat", icon: { theme in
+            return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Download"), color: theme.actionSheet.primaryTextColor)
+        }, action: { _, f in
+            presentSaveChatOptions(controllerInteraction: controllerInteraction, context: context, chatLocation: chatPresentationInterfaceState.chatLocation)
+            f(.default)
+        }))
+        if SGSimpleSettings.shared.showSaveChatButton {
+            sgActions.append(saveChatAction)
         }
         
         var threadId: Int64?
@@ -3004,9 +3015,32 @@ private final class ChatDeleteMessageContextItemNode: ASDisplayNode, ContextMenu
         self.setIsHighlighted(isHighlighted)
     }
     
-    func actionNode(at point: CGPoint) -> ContextActionNodeProtocol {
+func actionNode(at point: CGPoint) -> ContextActionNodeProtocol {
         return self
     }
+}
+
+private func presentSaveChatOptions(controllerInteraction: ChatControllerInteraction, context: AccountContext, chatLocation: ChatLocation) {
+    let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+    let actionSheet = ActionSheetController(presentationData: presentationData)
+    var items: [ActionSheetItem] = []
+    items.append(ActionSheetButtonItem(title: "JSON", action: { [weak actionSheet] in
+        actionSheet?.dismissAnimated()
+        exportChat(context: context, chatLocation: chatLocation, format: "json")
+    }))
+    items.append(ActionSheetButtonItem(title: "HTML", action: { [weak actionSheet] in
+        actionSheet?.dismissAnimated()
+        exportChat(context: context, chatLocation: chatLocation, format: "html")
+    }))
+    items.append(ActionSheetButtonItem(title: presentationData.strings.Common_Cancel, color: .accent, font: .bold, action: { [weak actionSheet] in
+        actionSheet?.dismissAnimated()
+    }))
+    actionSheet.setItemGroups([ActionSheetItemGroup(items: items)])
+    controllerInteraction.presentController(actionSheet, nil)
+}
+
+private func exportChat(context: AccountContext, chatLocation: ChatLocation, format: String) {
+    // TODO: Implement chat export logic
 }
 
 final class ChatMessageAuthorContextItem: ContextMenuCustomItem {

@@ -72,6 +72,7 @@
 "Settings.SendWithReturnKey" = "إرسال مع مفتاح \"العودة\"";
 "Settings.HidePhoneInSettingsUI" = "إخفاء الرقم من الإعدادات";
 "Settings.HidePhoneInSettingsUI.Notice" = "سيتم اخفاء رقمك من التطبيق فقط. لأخفاءهُ من المستخدمين الآخرين، يرجى استخدام إعدادات الخصوصية.";
+"Settings.ShowSaveChatButton" = "إظهار زر حفظ المحادثة";
 
 "PasscodeSettings.AutoLock.InFiveSeconds" = "إذا كان بعيدا لمدة 5 ثوان";
 
