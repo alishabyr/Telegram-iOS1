@@ -1,0 +1,112 @@
+name: Build Unsigned IPA (Universal)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive   # لو عندك Submodules
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Resolve Swift Packages
+        run: xcodebuild -resolvePackageDependencies
+
+      - name: Install CocoaPods if needed
+        run: |
+          if [ -f "Podfile" ]; then
+            sudo gem install cocoapods --no-document
+            pod install
+          fi
+
+      - name: Detect workspace/project and scheme
+        id: detect
+        shell: bash
+        run: |
+          set -e
+          if ls *.xcworkspace >/dev/null 2>&1; then
+            PROJ_TYPE="workspace"
+            PROJ_FILE=$(ls *.xcworkspace | head -n1)
+            SCHEMES=$(xcodebuild -list -json -workspace "$PROJ_FILE")
+          else
+            PROJ_TYPE="project"
+            PROJ_FILE=$(ls *.xcodeproj | head -n1)
+            SCHEMES=$(xcodebuild -list -json -project "$PROJ_FILE")
+          fi
+          SCHEME=$(python3 - <<'PY'
+import sys, json
+d=json.load(sys.stdin)
+k='project' if 'project' in d else 'workspace'
+print(d[k]['schemes'][0])
+PY
+          <<< "$SCHEMES")
+          echo "type=$PROJ_TYPE" >> $GITHUB_OUTPUT
+          echo "file=$PROJ_FILE" >> $GITHUB_OUTPUT
+          echo "scheme=$SCHEME" >> $GITHUB_OUTPUT
+          echo "Detected $PROJ_TYPE: $PROJ_FILE, scheme: $SCHEME"
+
+      - name: Build .app (unsigned, universal)
+        run: |
+          set -e
+          SCHEME="${{ steps.detect.outputs.scheme }}"
+          if [ "${{ steps.detect.outputs.type }}" = "workspace" ]; then
+            xcodebuild \
+              -workspace "${{ steps.detect.outputs.file }}" \
+              -scheme "$SCHEME" \
+              -configuration Release \
+              -sdk iphoneos \
+              CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+              TARGETED_DEVICE_FAMILY="1,2" \
+              clean build
+          else
+            xcodebuild \
+              -project "${{ steps.detect.outputs.file }}" \
+              -scheme "$SCHEME" \
+              -configuration Release \
+              -sdk iphoneos \
+              CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+              TARGETED_DEVICE_FAMILY="1,2" \
+              clean build
+          fi
+
+      - name: Locate built .app
+        id: locate
+        shell: bash
+        run: |
+          APP_PATH=$(find "$(pwd)/build" -type d -name "*.app" -print -quit)
+          if [ -z "$APP_PATH" ]; then
+            APP_PATH=$(find "$(pwd)"/**/Build/Products/Release-iphoneos -maxdepth 2 -type d -name "*.app" -print -quit)
+          fi
+          if [ -z "$APP_PATH" ]; then
+            echo "لم يتم العثور على .app"
+            exit 1
+          fi
+          echo "app=$APP_PATH" >> $GITHUB_OUTPUT
+          echo "Found app: $APP_PATH"
+
+      - name: Package into .ipa
+        shell: bash
+        run: |
+          set -e
+          APP="${{ steps.locate.outputs.app }}"
+          rm -rf Payload
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -r app-unsigned.ipa Payload >/dev/null
+          rm -rf Payload
+          ls -l app-unsigned.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-unsigned-universal
+          path: app-unsigned.ipa
