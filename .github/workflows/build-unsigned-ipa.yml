@@ -17,8 +17,59 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
 
-      - name: Resolve Swift Packages
-        run: xcodebuild -resolvePackageDependencies
+      - name: Detect workspace/project and schemes (diagnostic)
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "== Listing files =="
+          ls -la
+          if ls *.xcworkspace >/dev/null 2>&1; then
+            PROJ_TYPE="workspace"
+            PROJ_FILE=$(ls *.xcworkspace | head -n1)
+            echo "Found workspace: $PROJ_FILE"
+            echo "type=$PROJ_TYPE"  >> $GITHUB_OUTPUT
+            echo "file=$PROJ_FILE"  >> $GITHUB_OUTPUT
+            echo "== Schemes (workspace) =="
+            xcodebuild -list -workspace "$PROJ_FILE"
+            SCHEMES_JSON=$(xcodebuild -list -json -workspace "$PROJ_FILE")
+          else
+            PROJ_TYPE="project"
+            PROJ_FILE=$(ls *.xcodeproj | head -n1)
+            echo "Found project: $PROJ_FILE"
+            echo "type=$PROJ_TYPE"  >> $GITHUB_OUTPUT
+            echo "file=$PROJ_FILE"  >> $GITHUB_OUTPUT
+            echo "== Schemes (project) =="
+            xcodebuild -list -project "$PROJ_FILE"
+            SCHEMES_JSON=$(xcodebuild -list -json -project "$PROJ_FILE")
+          fi
+          # اختَر أول سكيم افتراضيًا (تقدر تغيره تحت بالمتغير DEFAULT_SCHEME)
+          DEFAULT_SCHEME=$(/usr/bin/python3 - <<'PY'
+import sys, json
+d=json.loads(sys.stdin.read())
+k='project' if 'project' in d else 'workspace'
+print(d[k]['schemes'][0])
+PY
+          <<< "$SCHEMES_JSON")
+          echo "scheme=$DEFAULT_SCHEME" >> $GITHUB_OUTPUT
+          echo "Detected scheme: $DEFAULT_SCHEME"
+
+      # (اختياري) عيّن اسم السكيم يدويًا هنا إن تعرفه
+      - name: Override scheme if you know it
+        if: ${{ always() }}
+        run: echo "SCHEME_OVERRIDE=" >> $GITHUB_ENV   # مثال: Telegram
+
+      - name: Resolve Swift Packages (on correct file)
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE="${{ steps.detect.outputs.file }}"
+          TYPE="${{ steps.detect.outputs.type }}"
+          if [ "$TYPE" = "workspace" ]; then
+            xcodebuild -resolvePackageDependencies -workspace "$FILE"
+          else
+            xcodebuild -resolvePackageDependencies -project "$FILE"
+          fi
 
       - name: Install CocoaPods if needed
         run: |
@@ -27,34 +78,17 @@ jobs:
             pod install
           fi
 
-      - name: Detect workspace/project and scheme
-        id: detect
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ls *.xcworkspace >/dev/null 2>&1; then
-            PROJ_TYPE="workspace"
-            PROJ_FILE=$(ls *.xcworkspace | head -n1)
-            SCHEMES=$(xcodebuild -list -json -workspace "$PROJ_FILE")
-          else
-            PROJ_TYPE="project"
-            PROJ_FILE=$(ls *.xcodeproj | head -n1)
-            SCHEMES=$(xcodebuild -list -json -project "$PROJ_FILE")
-          fi
-          SCHEME=$(/usr/bin/python3 -c 'import sys,json; d=json.load(sys.stdin); k="project" if "project" in d else "workspace"; print(d[k]["schemes"][0])' <<< "$SCHEMES")
-          echo "type=$PROJ_TYPE"  >> $GITHUB_OUTPUT
-          echo "file=$PROJ_FILE"  >> $GITHUB_OUTPUT
-          echo "scheme=$SCHEME"   >> $GITHUB_OUTPUT
-          echo "Detected $PROJ_TYPE: $PROJ_FILE, scheme: $SCHEME"
-
       - name: Build .app (unsigned, universal)
         shell: bash
         run: |
           set -euo pipefail
-          SCHEME="${{ steps.detect.outputs.scheme }}"
-          if [ "${{ steps.detect.outputs.type }}" = "workspace" ]; then
+          FILE="${{ steps.detect.outputs.file }}"
+          TYPE="${{ steps.detect.outputs.type }}"
+          SCHEME="${SCHEME_OVERRIDE:-${{ steps.detect.outputs.scheme }}}"
+          echo "Building scheme: $SCHEME"
+          if [ "$TYPE" = "workspace" ]; then
             xcodebuild \
-              -workspace "${{ steps.detect.outputs.file }}" \
+              -workspace "$FILE" \
               -scheme "$SCHEME" \
               -configuration Release \
               -sdk iphoneos \
@@ -63,7 +97,7 @@ jobs:
               clean build
           else
             xcodebuild \
-              -project "${{ steps.detect.outputs.file }}" \
+              -project "$FILE" \
               -scheme "$SCHEME" \
               -configuration Release \
               -sdk iphoneos \
@@ -77,5 +111,33 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APP_PATH=$(fin_
+          APP_PATH=$(find "$(pwd)/build" -type d -name "*.app" -print -quit)
+          if [ -z "$APP_PATH" ]; then
+            APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -type d -path "*/Build/Products/Release-iphoneos/*.app" -print -quit)
+          fi
+          if [ -z "$APP_PATH" ]; then
+            echo "لم يتم العثور على .app"
+            exit 1
+          fi
+          echo "app=$APP_PATH" >> $GITHUB_OUTPUT
+          echo "Found app: $APP_PATH"
+
+      - name: Package into .ipa
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="${{ steps.locate.outputs.app }}"
+          rm -rf Payload
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -r app-unsigned.ipa Payload >/dev/null
+          rm -rf Payload
+          ls -l app-unsigned.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-unsigned-universal
+          path: app-unsigned.ipa
+
 
