@@ -7,6 +7,9 @@ import QuickLook
 import Display
 import TelegramPresentationData
 
+// Persistent media storage helpers
+// Provides utilities to store previewed documents in a permanent location
+
 private final class DocumentPreviewItem: NSObject, QLPreviewItem {
     private let url: URL
     private let title: String
@@ -32,8 +35,6 @@ final class CompactDocumentPreviewController: QLPreviewController, QLPreviewCont
     
     private var item: DocumentPreviewItem?
     
-    private var tempFile: TempBoxFile?
-    
     init(theme: PresentationTheme, strings: PresentationStrings, postbox: Postbox, file: TelegramMediaFile, canShare: Bool = true) {
         self.postbox = postbox
         self.file = file
@@ -46,10 +47,10 @@ final class CompactDocumentPreviewController: QLPreviewController, QLPreviewCont
         
         if let path = self.postbox.mediaBox.completedResourcePath(self.file.resource) {
             var updatedPath = path
-            if let fileName = self.file.fileName {
-                let tempFile = TempBox.shared.file(path: path, fileName: fileName)
-                updatedPath = tempFile.path
-                self.tempFile = tempFile
+            if let _ = self.file.fileName {
+                let originalUrl = URL(fileURLWithPath: path)
+                let persistentUrl = migrateToPersistentMedia(url: originalUrl)
+                updatedPath = persistentUrl.path
             }
             self.item = DocumentPreviewItem(url: URL(fileURLWithPath: updatedPath), title: self.file.fileName ?? strings.Message_File)
         }
@@ -60,9 +61,6 @@ final class CompactDocumentPreviewController: QLPreviewController, QLPreviewCont
     }
     
     deinit {
-        if let tempFile = self.tempFile {
-            TempBox.shared.dispose(tempFile)
-        }
         self.timer?.invalidate()
     }
     
@@ -98,15 +96,23 @@ final class CompactDocumentPreviewController: QLPreviewController, QLPreviewCont
     private var navigationBars: [UINavigationBar] = []
     private var toolbars: [UIView] = []
     private var observations : [NSKeyValueObservation] = []
-    
+
     private var initialized = false
     private var timer: SwiftSignalKit.Timer?
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        if self.canShare {
+            self.navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .action, target: self, action: #selector(self.share))
+        }
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        
+
         if !self.canShare && !self.initialized {
             self.initialized = true
-            
+
             self.timer = SwiftSignalKit.Timer(timeout: 0.01, repeat: true, completion: { [weak self] in
                 self?.tick()
             }, queue: Queue.mainQueue())
@@ -182,6 +188,17 @@ final class CompactDocumentPreviewController: QLPreviewController, QLPreviewCont
             }
         }
         return result
+    }
+
+    @objc private func share() {
+        guard let item = self.item, let url = item.previewItemURL else {
+            return
+        }
+        let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        if let popover = controller.popoverPresentationController {
+            popover.barButtonItem = self.navigationItem.rightBarButtonItem
+        }
+        self.present(controller, animated: true)
     }
 }
 
