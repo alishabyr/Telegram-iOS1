@@ -45,11 +45,11 @@ jobs:
           fi
           # اختَر أول سكيم افتراضيًا (تقدر تغيره تحت بالمتغير DEFAULT_SCHEME)
           DEFAULT_SCHEME=$(/usr/bin/python3 - <<'PY'
-import sys, json
-d=json.loads(sys.stdin.read())
-k='project' if 'project' in d else 'workspace'
-print(d[k]['schemes'][0])
-PY
+            import sys, json
+            d=json.loads(sys.stdin.read())
+            k='project' if 'project' in d else 'workspace'
+            print(d[k]['schemes'][0])
+          PY
           <<< "$SCHEMES_JSON")
           echo "scheme=$DEFAULT_SCHEME" >> $GITHUB_OUTPUT
           echo "Detected scheme: $DEFAULT_SCHEME"
