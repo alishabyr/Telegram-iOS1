@@ -1,0 +1,61 @@
+name: Build Unsigned IPA
+
+on:
+  workflow_dispatch:
+
+env:
+  SCHEME: "YOUR_SCHEME"
+  PROJECT_PATH: "Telegram.xcworkspace" # or Telegram.xcodeproj
+  XCODE_VERSION: "15.3"
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+
+      - name: Resolve Swift Packages
+        run: |
+          set -e
+          if [[ "${PROJECT_PATH##*.}" == "xcworkspace" ]]; then
+            xcodebuild -resolvePackageDependencies -workspace "$PROJECT_PATH" -scheme "$SCHEME"
+          else
+            xcodebuild -resolvePackageDependencies -project "$PROJECT_PATH" -scheme "$SCHEME"
+          fi
+
+      - name: Install CocoaPods if needed
+        if: ${{ hashFiles('**/Podfile') != '' }}
+        run: |
+          pod install --repo-update
+
+      - name: Build
+        run: |
+          set -e
+          BUILD_DIR=$(mktemp -d)
+          if [[ "${PROJECT_PATH##*.}" == "xcworkspace" ]]; then
+            xcodebuild -workspace "$PROJECT_PATH" -scheme "$SCHEME" -configuration Release -destination 'generic/platform=iOS' -derivedDataPath "$BUILD_DIR" CODE_SIGNING_ALLOWED=NO TARGETED_DEVICE_FAMILY="1,2" clean build
+          else
+            xcodebuild -project "$PROJECT_PATH" -scheme "$SCHEME" -configuration Release -destination 'generic/platform=iOS' -derivedDataPath "$BUILD_DIR" CODE_SIGNING_ALLOWED=NO TARGETED_DEVICE_FAMILY="1,2" clean build
+          fi
+          echo "BUILD_DIR=$BUILD_DIR" >> $GITHUB_ENV
+
+      - name: Create IPA
+        run: |
+          APP_PATH=$(find "$BUILD_DIR" -name '*.app' -path '*/Build/Products/*-iphoneos/*.app' | head -n 1)
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          zip -r unsigned.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-ipa
+          path: unsigned.ipa
